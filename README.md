@@ -18,6 +18,23 @@ pip install -U python-jobspy
 
 _Python version >= [3.10](https://www.python.org/downloads/release/python-3100/) required_
 
+#### Naukri authentication
+
+Naukri requires an authenticated browser session. Install the Playwright browser and
+create the session state once before scraping Naukri:
+
+```
+python -m playwright install chromium
+python -m jobspy.naukri.session --login
+```
+
+Complete the Naukri login in the opened browser, then return to the terminal and
+press Enter. The session is stored in `.auth/naukri_storage_state.json` and is
+excluded from Git. Run the login command again when the session expires.
+
+Set `NAUKRI_STORAGE_STATE_PATH` to use a different state-file location. When using
+an installed Chrome browser, set `NAUKRI_BROWSER_CHANNEL=chrome`.
+
 ### Usage
 
 ```python

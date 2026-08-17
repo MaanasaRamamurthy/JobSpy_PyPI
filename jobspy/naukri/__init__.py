@@ -56,9 +56,13 @@ class Naukri(Scraper):
             is_tls=False,
             has_retry=True,
             delay=5,
-            clear_cookies=True,
+            clear_cookies=False,
         )
         self.session.headers.update(naukri_headers)
+        from jobspy.naukri.session import setup_naukri_session
+
+        self.session, captured_headers = setup_naukri_session(self.session)
+        self.session.headers.update(captured_headers)
         self.scraper_input = None
         self.country = "India"  #naukri is india-focused by default
         log.info("Naukri scraper initialized")
