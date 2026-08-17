@@ -35,6 +35,52 @@ excluded from Git. Run the login command again when the session expires.
 Set `NAUKRI_STORAGE_STATE_PATH` to use a different state-file location. When using
 an installed Chrome browser, set `NAUKRI_BROWSER_CHANNEL=chrome`.
 
+Naukri-specific filters can be passed through `naukri_params` while continuing to
+use `scrape_jobs()`:
+
+```python
+jobs = scrape_jobs(
+    site_name=["linkedin", "naukri"],
+    search_term="data engineer",
+    location="Chennai, India",
+    results_wanted=50,
+    hours_old=72,
+    naukri_params={
+        "sort_by": "date",
+        "cities": ["chennai"],
+        "work_mode": ["remote", "hybrid"],
+        "experience": 3,
+        "salary_range": ["10-15"],
+        "fetch_description": True,
+    },
+)
+```
+
+Supported search keys are `sort_by`, `freshness`, `cities`, `city_type_gids`,
+`work_mode`, `experience`, `salary_range`, `department`, `company_type`,
+`role_category`, `industry`, `posted_by`, `top_companies`, `ug_course`,
+`pg_course`, `stipend`, `duration`, and `fetch_description`. `sort_by` accepts
+`relevance` (default), `date`, or `recommended`. Explicit `naukri_params` values
+override the corresponding common `location`, `hours_old`, `is_remote`, and
+description settings for Naukri only.
+
+Authenticated recommendations use a separate Naukri flow and endpoint:
+
+```python
+jobs = scrape_jobs(
+    site_name="naukri",
+    results_wanted=50,
+    naukri_params={
+        "flow": "recommended",
+        "recommendation_clusters": ["apply", "profile", "preference"],
+        "fetch_description": True,
+    },
+)
+```
+
+The default recommendation clusters are `apply`, `profile`, `preference`, and
+`similar_jobs`. Search filters do not apply to personalized recommendations.
+
 ### Usage
 
 ```python

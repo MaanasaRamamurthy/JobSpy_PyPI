@@ -10,7 +10,10 @@ import regex as re
 import requests
 
 from jobspy.exception import NaukriException
+from jobspy.naukri.config import RECOMMENDED_JOB_CLUSTER_IDS
 from jobspy.naukri.constant import headers as naukri_headers
+from jobspy.naukri.model import NaukriSearchParams
+from jobspy.naukri.recommendations import NaukriRecommendationClient
 from jobspy.naukri.util import (
     is_job_remote,
     parse_job_type,
@@ -74,14 +77,15 @@ class Naukri(Scraper):
         :return: job_response
         """
         self.scraper_input = scraper_input
+        search_params = NaukriSearchParams.from_dict(scraper_input.naukri_params)
+        if search_params.flow == "recommended":
+            return self._scrape_recommended(scraper_input, search_params)
+
         job_list: list[JobPost] = []
         seen_ids = set()
         start = scraper_input.offset or 0
         page = (start // self.jobs_per_page) + 1
         request_count = 0
-        seconds_old = (
-            scraper_input.hours_old * 3600 if scraper_input.hours_old else None
-        )
         continue_search = (
             lambda: len(job_list) < scraper_input.results_wanted and page <= 50  # Arbitrary limit
         )
@@ -92,23 +96,14 @@ class Naukri(Scraper):
                 f"Scraping page {request_count} / {math.ceil(scraper_input.results_wanted / self.jobs_per_page)} "
                 f"for search term: {scraper_input.search_term}"
             )
-            params = {
-                "noOfResults": self.jobs_per_page,
-                "urlType": "search_by_keyword",
-                "searchType": "adv",
-                "keyword": scraper_input.search_term,
-                "pageNo": page,
-                "k": scraper_input.search_term,
-                "seoKey": f"{scraper_input.search_term.lower().replace(' ', '-')}-jobs",
-                "src": "jobsearchDesk",
-                "latLong": "",
-                "location": scraper_input.location,
-                "remote": "true" if scraper_input.is_remote else None,
-            }
-            if seconds_old:
-                params["days"] = seconds_old // 86400  # Convert to days
-
-            params = {k: v for k, v in params.items() if v is not None}
+            params = search_params.to_api_params(
+                page=page,
+                keyword=scraper_input.search_term,
+                results_per_page=self.jobs_per_page,
+                location=scraper_input.location,
+                hours_old=scraper_input.hours_old,
+                is_remote=scraper_input.is_remote,
+            )
             try:
                 log.debug(f"Sending request to {self.base_url} with params: {params}")
                 response = self.session.get(self.base_url, params=params, timeout=10)
@@ -134,7 +129,11 @@ class Naukri(Scraper):
                 log.debug(f"Processing job ID: {job_id}")
 
                 try:
-                    fetch_desc = scraper_input.linkedin_fetch_description
+                    fetch_desc = (
+                        search_params.fetch_description
+                        if search_params.fetch_description is not None
+                        else scraper_input.linkedin_fetch_description
+                    )
                     job_post = self._process_job(job, job_id, fetch_desc)
                     if job_post:
                         job_list.append(job_post)
@@ -151,6 +150,38 @@ class Naukri(Scraper):
 
         job_list = job_list[:scraper_input.results_wanted]
         log.info(f"Scraping completed. Total jobs collected: {len(job_list)}")
+        return JobResponse(jobs=job_list)
+
+    def _scrape_recommended(
+        self,
+        scraper_input: ScraperInput,
+        search_params: NaukriSearchParams,
+    ) -> JobResponse:
+        offset = scraper_input.offset or 0
+        requested_jobs = offset + scraper_input.results_wanted
+        cluster_ids = search_params.get_recommendation_clusters(
+            RECOMMENDED_JOB_CLUSTER_IDS
+        )
+        client = NaukriRecommendationClient(self.session)
+        raw_jobs = client.fetch_all(cluster_ids, requested_jobs)
+        job_list: list[JobPost] = []
+
+        for job in raw_jobs[offset:requested_jobs]:
+            job_id = job.get("jobId")
+            if not job_id:
+                continue
+            job_post = self._process_job(
+                job,
+                job_id,
+                bool(search_params.fetch_description),
+            )
+            if job_post:
+                job_post.listing_type = "recommended"
+                job_list.append(job_post)
+
+        log.info(
+            f"Recommended scraping completed. Total jobs collected: {len(job_list)}"
+        )
         return JobResponse(jobs=job_list)
 
     def _process_job(

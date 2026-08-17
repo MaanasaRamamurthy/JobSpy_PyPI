@@ -10,6 +10,18 @@ SESSION_BOOTSTRAP_URL = os.getenv(
     "NAUKRI_SESSION_BOOTSTRAP_URL",
     "https://www.naukri.com/software-developer-jobs-in-india",
 )
+RECOMMENDED_JOBS_API_URL = os.getenv(
+    "NAUKRI_RECOMMENDED_JOBS_API_URL",
+    "https://www.naukri.com/jobapi/v2/search/recom-jobs",
+)
+RECOMMENDED_JOB_CLUSTER_IDS = tuple(
+    cluster_id.strip()
+    for cluster_id in os.getenv(
+        "NAUKRI_RECOMMENDED_CLUSTER_IDS",
+        "apply,profile,preference,similar_jobs",
+    ).split(",")
+    if cluster_id.strip()
+)
 BROWSER = os.getenv("NAUKRI_BROWSER", "chromium").strip().lower()
 BROWSER_CHANNEL = os.getenv("NAUKRI_BROWSER_CHANNEL", "").strip() or None
 

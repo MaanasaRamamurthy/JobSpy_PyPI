@@ -320,6 +320,7 @@ class ScraperInput(BaseModel):
 
     results_wanted: int = 15
     hours_old: int | None = None
+    naukri_params: dict | None = None
 
 
 class Scraper(ABC):
